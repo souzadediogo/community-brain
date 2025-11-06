@@ -1,0 +1,200 @@
+version: '3.9'
+
+services:
+  # ===========================================
+  # Frontend - Next.js 16
+  # ===========================================
+  frontend:
+    build:
+      context: ../../frontend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    environment:
+      - NODE_ENV=development
+      - NEXT_PUBLIC_API_URL=http://localhost:4000
+    volumes:
+      - ../../frontend:/app
+      - /app/node_modules
+      - /app/.next
+    depends_on:
+      - api-gateway
+    networks:
+      - braintrust-network
+    command: npm run dev
+
+  # ===========================================
+  # API Gateway - Node.js/Express
+  # ===========================================
+  api-gateway:
+    build:
+      context: ../../services/api-gateway
+      dockerfile: Dockerfile
+    ports:
+      - "4000:4000"
+    environment:
+      - NODE_ENV=development
+      - COMMUNITY_SERVICE_URL=http://community-service:4001
+      - ASSISTANT_SERVICE_URL=http://assistant-service:5000
+      - JWT_SECRET=${JWT_SECRET:-dev-secret-change-in-production}
+    volumes:
+      - ../../services/api-gateway:/app
+      - /app/node_modules
+    depends_on:
+      - community-service
+      - assistant-service
+    networks:
+      - braintrust-network
+    command: npm run dev
+
+  # ===========================================
+  # Community Service - Node.js/Express
+  # ===========================================
+  community-service:
+    build:
+      context: ../../services/community
+      dockerfile: Dockerfile
+    ports:
+      - "4001:4001"
+    environment:
+      - NODE_ENV=development
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/braintrust
+      - RABBITMQ_URL=amqp://rabbitmq:5672
+    volumes:
+      - ../../services/community:/app
+      - /app/node_modules
+    depends_on:
+      - postgres
+      - rabbitmq
+    networks:
+      - braintrust-network
+    command: npm run dev
+
+  # ===========================================
+  # Assistant Service - Python/FastAPI
+  # ===========================================
+  assistant-service:
+    build:
+      context: ../../services/assistant
+      dockerfile: Dockerfile
+    ports:
+      - "5000:5000"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/braintrust
+      - QDRANT_URL=http://qdrant:6333
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - COHERE_API_KEY=${COHERE_API_KEY}
+      - ORCHESTRATOR=${ORCHESTRATOR:-langchain}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ../../services/assistant:/app
+    depends_on:
+      - postgres
+      - qdrant
+    networks:
+      - braintrust-network
+    command: uvicorn main:app --host 0.0.0.0 --port 5000 --reload
+
+  # ===========================================
+  # Evaluation Service - Python/FastAPI
+  # ===========================================
+  evaluation-service:
+    build:
+      context: ../../services/evaluation
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5001"
+    environment:
+      - DATABASE_URL=postgresql://postgres:postgres@postgres:5432/braintrust
+      - ASSISTANT_SERVICE_URL=http://assistant-service:5000
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - ANTHROPIC_API_KEY=${ANTHROPIC_API_KEY}
+      - PYTHONUNBUFFERED=1
+    volumes:
+      - ../../services/evaluation:/app
+    depends_on:
+      - postgres
+      - assistant-service
+    networks:
+      - braintrust-network
+    command: uvicorn main:app --host 0.0.0.0 --port 5001 --reload
+
+  # ===========================================
+  # PostgreSQL Database
+  # ===========================================
+  postgres:
+    image: postgres:15-alpine
+    ports:
+      - "5432:5432"
+    environment:
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+      - POSTGRES_DB=braintrust
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ../../db/migrations:/docker-entrypoint-initdb.d
+    networks:
+      - braintrust-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # Qdrant Vector Database
+  # ===========================================
+  qdrant:
+    image: qdrant/qdrant:latest
+    ports:
+      - "6333:6333"  # HTTP API
+      - "6334:6334"  # gRPC (optional)
+    volumes:
+      - qdrant-data:/qdrant/storage
+    networks:
+      - braintrust-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:6333/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # ===========================================
+  # RabbitMQ Message Queue
+  # ===========================================
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"   # AMQP protocol
+      - "15672:15672" # Management UI
+    environment:
+      - RABBITMQ_DEFAULT_USER=guest
+      - RABBITMQ_DEFAULT_PASS=guest
+    volumes:
+      - rabbitmq-data:/var/lib/rabbitmq
+    networks:
+      - braintrust-network
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+# ===========================================
+# Networks
+# ===========================================
+networks:
+  braintrust-network:
+    driver: bridge
+
+# ===========================================
+# Volumes
+# ===========================================
+volumes:
+  postgres-data:
+    driver: local
+  qdrant-data:
+    driver: local
+  rabbitmq-data:
+    driver: local
