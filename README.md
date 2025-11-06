@@ -1,6 +1,6 @@
 # Community Brain
 
-AI-powered community platform inspired by The Suite's Braintrust, featuring RAG, semantic search, and intelligent assistant capabilities.
+AI-powered community platform, featuring RAG, semantic search, and intelligent assistant capabilities.
 
 ## Project Overview
 
