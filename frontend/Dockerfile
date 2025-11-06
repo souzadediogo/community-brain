@@ -8,10 +8,10 @@ RUN apk add --no-cache libc6-compat
 WORKDIR /app
 
 # Copy package files
-COPY package.json pnpm-lock.yaml* ./
+COPY package.json package-lock.json* ./
 
-# Install dependencies using pnpm
-RUN corepack enable pnpm && pnpm install --frozen-lockfile
+# Install dependencies using npm
+RUN npm ci --legacy-peer-deps
 
 # Development image
 FROM base AS dev
@@ -21,9 +21,6 @@ WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 
-# Enable pnpm
-RUN corepack enable pnpm
-
 # Expose port
 EXPOSE 3000
 
@@ -32,4 +29,4 @@ ENV NODE_ENV=development
 ENV NEXT_TELEMETRY_DISABLED=1
 
 # Start development server
-CMD ["pnpm", "dev"]
+CMD ["npm", "run", "dev"]

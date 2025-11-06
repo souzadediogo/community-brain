@@ -9,15 +9,16 @@ import { ThreadCard } from "@/components/thread-card"
 import { MapPin, Calendar, MessageSquare, CheckCircle2, ThumbsUp, Mail } from "lucide-react"
 import { formatDistanceToNow } from "date-fns"
 
-export default function ProfilePage({ params }: { params: { id: string } }) {
-  const profile = mockUserProfiles[params.id]
+export default async function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
+  const profile = mockUserProfiles[id]
 
   if (!profile) {
     notFound()
   }
 
   // Get user's threads
-  const userThreads = mockThreads.filter((t) => t.author.id === params.id)
+  const userThreads = mockThreads.filter((t) => t.author.id === id)
 
   return (
     <div className="container py-8 px-4">
