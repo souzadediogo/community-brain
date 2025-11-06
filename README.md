@@ -8,7 +8,7 @@ Community Brain is a modern Q&A community platform that combines traditional for
 
 - Post questions and discussions as threads
 - Reply to threads with insights
-- Get AI-generated answers from the Braintrust assistant
+- Get AI-generated answers from the Brain assistant
 - Discover similar threads via semantic search
 - Find recommended experts based on topics
 - View AI-generated thread summaries
