@@ -1,0 +1,73 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           String   @id @default(uuid())
+  name         String
+  email        String   @unique
+  title        String?
+  org          String?
+  expertiseTags String[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  threads Thread[]
+  posts   Post[]
+
+  @@map("users")
+}
+
+model Thread {
+  id        String       @id @default(uuid())
+  title     String
+  body      String
+  tags      String[]
+  status    ThreadStatus @default(OPEN)
+  viewCount Int          @default(0)
+  createdAt DateTime     @default(now())
+  updatedAt DateTime     @updatedAt
+
+  authorId  String
+  author    User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  posts     Post[]
+
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("threads")
+}
+
+model Post {
+  id               String   @id @default(uuid())
+  content          String
+  isAcceptedAnswer Boolean  @default(false)
+  upvotes          Int      @default(0)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  threadId  String
+  thread    Thread  @relation(fields: [threadId], references: [id], onDelete: Cascade)
+
+  authorId  String
+  author    User    @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([threadId])
+  @@index([authorId])
+  @@index([createdAt])
+  @@map("posts")
+}
+
+enum ThreadStatus {
+  OPEN
+  ANSWERED
+  CLOSED
+}
